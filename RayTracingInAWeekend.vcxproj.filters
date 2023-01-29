@@ -47,5 +47,20 @@
     <ClInclude Include="material.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="moving_sphere.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AABB.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="texture.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="perlin.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

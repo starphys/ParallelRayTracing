@@ -28,5 +28,10 @@ inline double random_double(double min = 0.0, double max = 1.0) {
 	return distribution(generator);
 }
 
+inline int random_int(int min, int max) {
+	// Returns a random integer in [min,max].
+	return static_cast<int>(random_double(min, max + 1));
+}
+
 #include "ray.h"
 #include "vec3.h"
