@@ -9,10 +9,15 @@
 #include "hittable_list.h"
 #include "material.h"
 #include "moving_sphere.h"
+#include "scenes.h"
 #include "sphere.h"
 #include "texture.h"
 
 #include <iostream>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <vector>
 
 
 color ray_color(const ray& r, const color& background, const hittable& world, int depth) {
@@ -36,232 +41,82 @@ color ray_color(const ray& r, const color& background, const hittable& world, in
     return emitted + attenuation * ray_color(scattered, background, world, depth - 1);
 }
 
+struct Job
+{
+    int startIndex{0};
+    int endIndex{0};
+    int height;
+    int width;
+    int samples;
+    int depth;
+    std::vector<int> indices;
+    std::vector<color> colors;
+};
 
-hittable_list random_scene() {
-    hittable_list world;
+// Complete a single job and store result
+void RenderJob(Job job, std::vector<Job>& results,
+    camera cam, hittable_list world, color background,
+    std::mutex& mutex) {
+    for (int j = job.startIndex; j < job.endIndex; ++j) {
 
-    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+        for (int i = 0; i < job.width; ++i) {
+            color pixel_color(0, 0, 0);
+            for (int s = 0; s < job.samples; ++s) {
+                auto u = (i + random_double()) / (job.width - 1);
+                auto v = (j + random_double()) / (job.height - 1);
+                ray r = cam.get_ray(u, v);
+                pixel_color += ray_color(r, background, world, job.depth);
+            }
 
-    world.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(checker)));
+            job.indices.push_back(j*job.width+i);
+            job.colors.push_back(pixel_color);
+        }
+    }
 
-    for (int a = -11; a < 11; a++) {
-        for (int b = -11; b < 11; b++) {
-            auto choose_mat = random_double();
-            point3 center(a + 0.9 * random_double(), 0.2, b + 0.9 * random_double());
+    // Job is done, record it in results
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        results.push_back(job);
+    }
+}
 
-            if ((center - vec3(4, 0.2, 0)).length() > 0.9) {
-                shared_ptr<material> sphere_material;
+// Keep threads working until all jobs are completed
+void ScheduleJobs(std::vector<Job>& results, std::queue<Job>& todo, 
+    camera cam, hittable_list world, color background,
+    std::mutex& mutex, std::condition_variable& finished) {
 
-                if (choose_mat < 0.8) {
-                    // diffuse
-                    auto albedo = color::random() * color::random();
-                    sphere_material = make_shared<lambertian>(albedo);
-                    auto center2 = center + vec3(0, random_double(0, .5), 0);
-                    world.add(make_shared<moving_sphere>(
-                        center, center2, 0.0, 1.0, 0.2, sphere_material));
-                }
-                else if (choose_mat < 0.95) {
-                    // metal
-                    auto albedo = color::random(0.5, 1);
-                    auto fuzz = random_double(0, 0.5);
-                    sphere_material = make_shared<metal>(albedo, fuzz);
-                    world.add(make_shared<sphere>(center, 0.2, sphere_material));
-                }
-                else {
-                    // glass
-                    sphere_material = make_shared<dielectric>(1.5);
-                    world.add(make_shared<sphere>(center, 0.2, sphere_material));
-                }
+    // Set when all jobs have been dispatched
+    std::atomic<bool> done{false};
+
+    while (!done) {
+        Job newJob;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (!todo.empty()) {
+                newJob = todo.front();
+                todo.pop();
             }
         }
-    }
 
-    auto material1 = make_shared<dielectric>(1.5);
-    world.add(make_shared<sphere>(point3(0, 1, 0), 1.0, material1));
-
-    auto material2 = make_shared<lambertian>(color(0.4, 0.2, 0.1));
-    world.add(make_shared<sphere>(point3(-4, 1, 0), 1.0, material2));
-
-    auto material3 = make_shared<metal>(color(0.7, 0.6, 0.5), 0.0);
-    world.add(make_shared<sphere>(point3(4, 1, 0), 1.0, material3));
-
-    return hittable_list(make_shared<bvh_node>(world, 0.0, 1.0));
-}
-
-
-hittable_list two_spheres() {
-    hittable_list objects;
-
-    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
-
-    objects.add(make_shared<sphere>(point3(0, -10, 0), 10, make_shared<lambertian>(checker)));
-    objects.add(make_shared<sphere>(point3(0, 10, 0), 10, make_shared<lambertian>(checker)));
-
-    return objects;
-}
-
-
-hittable_list two_perlin_spheres() {
-    hittable_list objects;
-
-    auto pertext = make_shared<noise_texture>(4);
-    objects.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(pertext)));
-    objects.add(make_shared<sphere>(point3(0, 2, 0), 2, make_shared<lambertian>(pertext)));
-
-    return objects;
-}
-
-
-hittable_list earth() {
-    auto earth_texture = make_shared<image_texture>("earthmap.jpg");
-    auto earth_surface = make_shared<lambertian>(earth_texture);
-    auto globe = make_shared<sphere>(point3(0, 0, 0), 2, earth_surface);
-
-    return hittable_list(globe);
-}
-
-
-hittable_list simple_light() {
-    hittable_list objects;
-
-    auto pertext = make_shared<noise_texture>(4);
-    objects.add(make_shared<sphere>(point3(0, -1000, 0), 1000, make_shared<lambertian>(pertext)));
-    objects.add(make_shared<sphere>(point3(0, 2, 0), 2, make_shared<lambertian>(pertext)));
-
-    auto difflight = make_shared<diffuse_light>(color(4, 4, 4));
-    objects.add(make_shared<sphere>(point3(0, 7, 0), 2, difflight));
-    objects.add(make_shared<xy_rect>(3, 5, 1, 3, -2, difflight));
-
-    return objects;
-}
-
-
-hittable_list cornell_box() {
-    hittable_list objects;
-
-    auto red = make_shared<lambertian>(color(.65, .05, .05));
-    auto white = make_shared<lambertian>(color(.73, .73, .73));
-    auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(15, 15, 15));
-
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
-    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
-
-    shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265, 0, 295));
-    objects.add(box1);
-
-    shared_ptr<hittable> box2 = make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
-    objects.add(box2);
-
-    return objects;
-}
-
-
-hittable_list cornell_smoke() {
-    hittable_list objects;
-
-    auto red = make_shared<lambertian>(color(.65, .05, .05));
-    auto white = make_shared<lambertian>(color(.73, .73, .73));
-    auto green = make_shared<lambertian>(color(.12, .45, .15));
-    auto light = make_shared<diffuse_light>(color(7, 7, 7));
-
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<xz_rect>(113, 443, 127, 432, 554, light));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
-    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
-
-    shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
-    box1 = make_shared<rotate_y>(box1, 15);
-    box1 = make_shared<translate>(box1, vec3(265, 0, 295));
-
-    shared_ptr<hittable> box2 = make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
-
-    objects.add(make_shared<constant_medium>(box1, 0.01, color(0, 0, 0)));
-    objects.add(make_shared<constant_medium>(box2, 0.01, color(1, 1, 1)));
-
-    return objects;
-}
-
-
-hittable_list final_scene() {
-    hittable_list boxes1;
-    auto ground = make_shared<lambertian>(color(0.48, 0.83, 0.53));
-
-    const int boxes_per_side = 20;
-    for (int i = 0; i < boxes_per_side; i++) {
-        for (int j = 0; j < boxes_per_side; j++) {
-            auto w = 100.0;
-            auto x0 = -1000.0 + i * w;
-            auto z0 = -1000.0 + j * w;
-            auto y0 = 0.0;
-            auto x1 = x0 + w;
-            auto y1 = random_double(1, 101);
-            auto z1 = z0 + w;
-
-            boxes1.add(make_shared<box>(point3(x0, y0, z0), point3(x1, y1, z1), ground));
+        if (newJob.startIndex < newJob.endIndex) {
+            RenderJob(newJob, results, cam, world, background, mutex);
+        }
+        // Otherwise we've finished all of our jobs
+        else {
+            done = true;
         }
     }
 
-    hittable_list objects;
-
-    objects.add(make_shared<bvh_node>(boxes1, 0, 1));
-
-    auto light = make_shared<diffuse_light>(color(7, 7, 7));
-    objects.add(make_shared<xz_rect>(123, 423, 147, 412, 554, light));
-
-    auto center1 = point3(400, 400, 200);
-    auto center2 = center1 + vec3(30, 0, 0);
-    auto moving_sphere_material = make_shared<lambertian>(color(0.7, 0.3, 0.1));
-    objects.add(make_shared<moving_sphere>(center1, center2, 0, 1, 50, moving_sphere_material));
-
-    objects.add(make_shared<sphere>(point3(260, 150, 45), 50, make_shared<dielectric>(1.5)));
-    objects.add(make_shared<sphere>(
-        point3(0, 150, 145), 50, make_shared<metal>(color(0.8, 0.8, 0.9), 1.0)
-        ));
-
-    auto boundary = make_shared<sphere>(point3(360, 150, 145), 70, make_shared<dielectric>(1.5));
-    objects.add(boundary);
-    objects.add(make_shared<constant_medium>(boundary, 0.2, color(0.2, 0.4, 0.9)));
-    boundary = make_shared<sphere>(point3(0, 0, 0), 5000, make_shared<dielectric>(1.5));
-    objects.add(make_shared<constant_medium>(boundary, .0001, color(1, 1, 1)));
-
-    auto emat = make_shared<lambertian>(make_shared<image_texture>("earthmap.jpg"));
-    objects.add(make_shared<sphere>(point3(400, 200, 400), 100, emat));
-    auto pertext = make_shared<noise_texture>(0.1);
-    objects.add(make_shared<sphere>(point3(220, 280, 300), 80, make_shared<lambertian>(pertext)));
-
-    hittable_list boxes2;
-    auto white = make_shared<lambertian>(color(.73, .73, .73));
-    int ns = 1000;
-    for (int j = 0; j < ns; j++) {
-        boxes2.add(make_shared<sphere>(point3::random(0, 165), 10, white));
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        finished.notify_one();
     }
 
-    objects.add(make_shared<translate>(
-        make_shared<rotate_y>(
-            make_shared<bvh_node>(boxes2, 0.0, 1.0), 15),
-        vec3(-100, 270, 395)
-        )
-    );
 
-    return objects;
 }
 
 
 int main() {
-
     // Image
 
     auto aspect_ratio = 16.0 / 9.0;
@@ -325,7 +180,7 @@ int main() {
     case 6:
         world = cornell_box();
         aspect_ratio = 1.0;
-        image_width = 100;
+        image_width = 600;
         samples_per_pixel = 200;
         lookfrom = point3(278, 278, -800);
         lookat = point3(278, 278, 0);
@@ -345,39 +200,101 @@ int main() {
     case 8:
         world = final_scene();
         aspect_ratio = 1.0;
-        image_width = 800;
-        samples_per_pixel = 10000;
+        image_width = 600;
+        samples_per_pixel = 500;
         lookfrom = point3(478, 278, -600);
         lookat = point3(278, 278, 0);
         vfov = 40.0;
         break;
     }
-
     // Camera
 
     const vec3 vup(0, 1, 0);
     const auto dist_to_focus = 10.0;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
+    const int pixels = image_height * image_width;
 
     camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
 
-    // Render
+    // Render - split the work up into jobs, schedule the jobs to available threads.
+    color* image = new color[pixels];
 
+    std::mutex mutex;
+    std::condition_variable finished;
+    std::vector<Job> results;
+    std::queue<Job> todo;
+    std::vector<std::thread> threads;
+
+    unsigned int threadCount = std::thread::hardware_concurrency();
+    
+    //TODO: hardcoding vs algorithmic values
+    int rowsPerJob = 20;
+    int nJobs = image_height / rowsPerJob;
+    int remJobs = image_height % rowsPerJob;
+
+    // Create jobs
+    for (int i = 0; i < nJobs; ++i)
+    {
+        Job job;
+        job.startIndex = i * rowsPerJob;
+        job.endIndex = job.startIndex + rowsPerJob;
+        if (i == nJobs - 1)
+        {
+            // Last job is slightly larger
+            job.endIndex += remJobs;
+        }
+        job.height = image_height;
+        job.width = image_width;
+        job.depth = max_depth;
+        job.samples = samples_per_pixel;
+
+        todo.push(job);
+    }
+
+    // Spin up threads, make main/parent the last thread
+    for (int i = 0; i < threadCount - 1; ++i)
+    {
+        std::thread t([&]() {
+            ScheduleJobs(results, todo, cam, world, background, mutex, finished);
+            });
+        threads.push_back(std::move(t));
+    }
+
+    ScheduleJobs(results, todo, cam, world, background, mutex, finished);
+
+    // Wait for all jobs to be done in all threads
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        finished.wait(lock, [&results, &nJobs] {
+            return results.size() == nJobs;
+        });
+    }
+
+    for (std::thread& t : threads)
+    {
+        t.join();
+    }
+
+    // Finalize the image
+
+    for (Job job : results)
+    {
+        int colorIndex = 0;
+
+        for (int i = 0; i < job.colors.size(); ++i)
+        {
+            int image_index = job.indices[i];
+            image[image_index] = job.colors[i];
+        }
+    }
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
-    for (int j = image_height - 1; j >= 0; --j) {
-        std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
-        for (int i = 0; i < image_width; ++i) {
-            color pixel_color(0, 0, 0);
-            for (int s = 0; s < samples_per_pixel; ++s) {
-                auto u = (i + random_double()) / (image_width - 1);
-                auto v = (j + random_double()) / (image_height - 1);
-                ray r = cam.get_ray(u, v);
-                pixel_color += ray_color(r, background, world, max_depth);
-            }
-            write_color(std::cout, pixel_color, samples_per_pixel);
-        }
+    for (int i = pixels - 1; i >= 0; --i)
+    {
+        write_color(std::cout, image[i], samples_per_pixel);
     }
 
     std::cerr << "\nDone.\n";
+    delete[] image;
+    return 0;
 }

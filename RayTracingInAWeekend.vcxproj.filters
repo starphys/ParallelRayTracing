@@ -74,5 +74,8 @@
     <ClInclude Include="constant_medium.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="scenes.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
