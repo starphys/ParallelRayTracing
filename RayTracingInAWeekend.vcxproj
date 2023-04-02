@@ -54,6 +54,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.1.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -139,9 +140,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="RayTracingInAWeekend.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="AABB.h" />
     <ClInclude Include="aa_rectangle.h" />
     <ClInclude Include="box.h" />
@@ -161,7 +159,11 @@
     <ClInclude Include="texture.h" />
     <ClInclude Include="vec3.h" />
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="RayTracingInAWeekend.cu" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.1.targets" />
   </ImportGroup>
 </Project>

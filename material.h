@@ -7,10 +7,12 @@ struct hit_record;
 
 class material {
 public:
+	__device__
 	virtual bool scatter(
-		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, curandState* local_rand_state
 	) const = 0;
 
+	__device__
 	virtual color emitted(double u, double v, const point3& p) const {
 		return color(0, 0, 0);
 	}
@@ -18,13 +20,14 @@ public:
 
 class lambertian : public material {
 public:
-	lambertian(const color& a) : albedo(make_shared<solid_color>(a)) {}
-	lambertian(shared_ptr<texture> a) : albedo(a) {}
+	__device__ lambertian(const color& a) : albedo(new solid_color(a)) {}
+	__device__ lambertian(texture* a) : albedo(a) {}
 
+	__device__
 	virtual bool scatter(
-		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, curandState* local_rand_state
 	) const override {
-		auto scatter_direction = rec.normal + random_unit_vector();
+		auto scatter_direction = rec.normal + random_unit_vector(local_rand_state);
 		
 		// No zero/near zero vectors!
 		if (scatter_direction.near_zero()) {
@@ -36,35 +39,37 @@ public:
 		return true;
 	}
 
-	shared_ptr<texture> albedo;
+	texture* albedo;
 };
 
 class metal : public material {
 public:
-	metal(const color& a, double f) : albedo(make_shared<solid_color>(a)), fuzz(f < 1 ? f : 1) {}
-	metal(shared_ptr<texture> a, double f) : albedo(a), fuzz(f < 1 ? f : 1) {}
+	__device__ metal(const color& a, double f) : albedo(new solid_color(a)), fuzz(f < 1 ? f : 1) {}
+	__device__ metal(texture* a, double f) : albedo(a), fuzz(f < 1 ? f : 1) {}
 
+	__device__
 	virtual bool scatter(
-		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, curandState* local_rand_state
 	) const override {
 		vec3 reflected = reflect(unit_vector(r_in.direction()), rec.normal);
-		scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(), r_in.time());
+		scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(local_rand_state), r_in.time());
 		attenuation = albedo->value(rec.u, rec.v, rec.p);
 		return (dot(scattered.direction(), rec.normal) > 0);
 	}
 
-	shared_ptr<texture> albedo;
+	texture* albedo;
 	double fuzz;
 };
 
 class dielectric : public material {
 public:
-	dielectric(double index_of_refraction, const color& a = color(1.0,1.0,1.0)) : ir(index_of_refraction), albedo(make_shared<solid_color>(a)) {}
+	__device__ dielectric(double index_of_refraction, const color& a = color(1.0,1.0,1.0)) : ir(index_of_refraction), albedo(new solid_color(a)) {}
 
-	dielectric(double index_of_refraction, shared_ptr<texture> a) : ir(index_of_refraction), albedo(a) {}
+	__device__ dielectric(double index_of_refraction, texture* a) : ir(index_of_refraction), albedo(a) {}
 
+	__device__
 	virtual bool scatter(
-		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, curandState* local_rand_state
 	) const override {
 		attenuation = albedo->value(rec.u, rec.v, rec.p);
 		double refraction_ratio = rec.front_face ? (1.0 / ir) : ir;
@@ -75,7 +80,7 @@ public:
 
 		bool cannot_refract = refraction_ratio * sin_theta > 1.0;
 		vec3 direction;
-		if (cannot_refract || reflectance(cos_theta, refraction_ratio) > random_double())
+		if (cannot_refract || reflectance(cos_theta, refraction_ratio) > curand_uniform(local_rand_state))
 			direction = reflect(unit_direction, rec.normal);
 		else
 			direction = refract(unit_direction, rec.normal, refraction_ratio);
@@ -85,9 +90,10 @@ public:
 	}
 
 	double ir;
-	shared_ptr<texture> albedo;
+	texture* albedo;
 
 private:
+	__device__
 	static double reflectance(double cosine, double ref_idx) {
 		// Schlick's approximation
 		auto r0 = (1 - ref_idx) / (1 + ref_idx);
@@ -98,35 +104,38 @@ private:
 
 class diffuse_light : public material {
 public:
-	diffuse_light(shared_ptr<texture> a) : emit(a) {}
-	diffuse_light(color c) : emit(make_shared<solid_color>(c)) {}
+	__device__ diffuse_light(texture* a) : emit(a) {}
+	__device__ diffuse_light(color c) : emit(new solid_color(c)) {}
 
+	__device__
 	virtual bool scatter(
-		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, curandState* local_rand_state
 	) const override {
 		return false;
 	}
 
+	__device__
 	virtual color emitted(double u, double v, const point3& p) const override {
 		return emit->value(u, v, p);
 	}
 
-	shared_ptr<texture> emit;
+	texture* emit;
 };
 
 
 class isotropic : public material {
 public:
-	isotropic(color c) : albedo(make_shared<solid_color>(c)) {}
-	isotropic(shared_ptr<texture> a) : albedo(a) {}
+	__device__ isotropic(color c) : albedo(new solid_color(c)) {}
+	__device__ isotropic(texture* a) : albedo(a) {}
 
+	__device__
 	virtual bool scatter(
-		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
+		const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered, curandState* local_rand_state
 	) const override {
-		scattered = ray(rec.p, random_in_unit_sphere(), r_in.time());
+		scattered = ray(rec.p, random_in_unit_sphere(local_rand_state), r_in.time());
 		attenuation = albedo->value(rec.u, rec.v, rec.p);
 		return true;
 	}
 
-	shared_ptr<texture> albedo;
+	texture* albedo;
 };

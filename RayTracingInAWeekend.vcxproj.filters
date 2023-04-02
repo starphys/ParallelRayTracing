@@ -15,11 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="RayTracingInAWeekend.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="vec3.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -74,5 +69,8 @@
     <ClInclude Include="constant_medium.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="RayTracingInAWeekend.cu" />
   </ItemGroup>
 </Project>

@@ -4,12 +4,13 @@
 
 class aabb {
 public:
-	aabb() {}
-	aabb(const point3& a, const point3& b) : minimum(a), maximum(b) {}
+	__device__ aabb() {}
+	__device__ aabb(const point3& a, const point3& b) : minimum(a), maximum(b) {}
 
-	point3 min() const { return minimum; }
-	point3 max() const { return maximum; }
+	__device__ point3 min() const { return minimum; }
+	__device__ point3 max() const { return maximum; }
 
+	__device__
 	bool hit(const ray& r, double t_min, double t_max) const {
 		for (int a = 0; a < 3; a++) {
 			auto invD = 1.0f / r.direction()[a];
@@ -30,6 +31,7 @@ public:
 	point3 maximum;
 };
 
+__device__
 aabb surrounding_box(aabb box0, aabb box1) {
 	point3 small(fmin(box0.min().x(), box1.min().x()),
 		fmin(box0.min().y(), box1.min().y()),

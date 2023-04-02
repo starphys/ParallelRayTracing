@@ -361,3 +361,15 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/test.ppm
+/sphere_in_water.ppm
+/spheres.ppm
+/image.ppm
+/final_scene.ppm
+/fat_owl.ppm
+/fat_owl.jpg
+/earthmap.jpg
+/earth.ppm
+/back_owl.ppm
+/another_owl.ppm
+/another_owl.png

@@ -4,7 +4,8 @@
 
 class camera {
 public:
-    camera(
+    __device__ 
+        camera(
         point3 lookfrom,
         point3 lookat,
         vec3 vup,
@@ -34,14 +35,17 @@ public:
         time1 = _time1;
 	}
 
-    ray get_ray(double s, double t) const {
-        vec3 rd = lens_radius * random_in_unit_disk();
+    __device__ 
+        ray get_ray(double s, double t, curandState *local_rand_state) const {
+        vec3 rd = lens_radius * random_in_unit_disk(local_rand_state);
         vec3 offset = u * rd.x() + v * rd.y();
-        
+
+        double timeRange = (time1 - time0);
+
         return ray(
-            origin + offset, 
+            origin + offset,
             lower_left_corner + s * horizontal + t * vertical - origin - offset,
-            random_double(time0, time1)
+            (curand_uniform(local_rand_state) * timeRange) + time0
         );
     }
 

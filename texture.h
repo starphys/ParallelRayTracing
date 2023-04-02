@@ -1,24 +1,26 @@
 #pragma once
 
 #include "rtweekend.h"
-#include "rtw_stb_image.h"
-#include "perlin.h"
+//#include "rtw_stb_image.h"
+//#include "perlin.h"
 
 #include <iostream>
 
 class texture {
 public:
-	virtual color value(double u, double v, const point3& p) const = 0;
+	__device__ virtual color value(double u, double v, const point3& p) const = 0;
 };
 
 class solid_color : public texture {
 public:
-	solid_color() {}
-	solid_color(color c) : color_value(c) {}
+    __device__ solid_color() {}
+    __device__ solid_color(color c) : color_value(c) {}
 
+    __device__
 	solid_color(double red, double green, double blue)
 		: solid_color(color(red, green, blue)) {}
 
+    __device__
 	virtual color value(double u, double v, const vec3& p) const override {
 		return color_value;
 	}
@@ -29,14 +31,17 @@ private:
 
 class checker_texture : public texture {
 public:
-	checker_texture() {}
+    __device__ checker_texture() {}
 
-	checker_texture(shared_ptr<texture> _even, shared_ptr<texture> _odd)
+    __device__
+	checker_texture(texture* _even, texture* _odd)
 		: even(_even), odd(_odd) {}
 
+    __device__
 	checker_texture(color c1, color c2)
-		: even(make_shared<solid_color>(c1)), odd(make_shared<solid_color>(c2)) {}
+		: even(new solid_color(c1)), odd(new solid_color(c2)), dynamic(true) {}
 
+    __device__
 	virtual color value(double u, double v, const point3& p) const override {
 		auto sines = sin(10 * p.x()) * sin(10 * p.y()) * sin(10 * p.z());
 		if (sines < 0)
@@ -45,10 +50,18 @@ public:
 			return even->value(u, v, p);
 	}
 
-	shared_ptr<texture> odd;
-	shared_ptr<texture> even;
+    __device__
+        ~checker_texture() { 
+        if (dynamic) {
+            delete odd;
+            delete even;
+        }
+    }
+    texture* odd;
+    texture* even;
+    bool dynamic = false;
 };
-
+/*
 class noise_texture : public texture {
 public:
 	noise_texture() {}
@@ -62,7 +75,8 @@ public:
 	perlin noise;
 	double scale;
 };
-
+*/
+/*
 class image_texture : public texture {
 public:
     const static int bytes_per_pixel = 3;
@@ -115,4 +129,5 @@ private:
     int width, height;
     int bytes_per_scanline;
 };
+*/
 

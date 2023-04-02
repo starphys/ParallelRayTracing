@@ -5,17 +5,22 @@
 #include <memory>
 #include <random>
 
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include <curand_kernel.h>
+
 using std::shared_ptr;
 using std::make_shared;
 using std::sqrt;
 
-const double infinity = std::numeric_limits<double>::infinity();
-const double pi = 3.1415926535897932385;
+constexpr auto pi = 3.1415926535897932385;
 
+__host__ __device__
 inline double degrees_to_radians(double degrees) {
-	return degrees * pi / 180.0;
+	return (degrees * pi) / 180.0;
 }
 
+__host__ __device__
 inline double clamp(double x, double min, double max) {
 	if (x < min) return min;
 	if (x > max) return max;
