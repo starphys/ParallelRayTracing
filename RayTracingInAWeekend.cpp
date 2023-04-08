@@ -279,7 +279,7 @@ int main() {
     auto aperture = 0.0;
     color background(0, 0, 0);
 
-    switch (6) {
+    switch (1) {
     case 1:
         world = random_scene();
         background = color(0.70, 0.80, 1.00);
@@ -365,6 +365,9 @@ int main() {
 
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
+    clock_t start, stop;
+    start = clock();
+
     for (int j = image_height - 1; j >= 0; --j) {
         std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
         for (int i = 0; i < image_width; ++i) {
@@ -380,4 +383,8 @@ int main() {
     }
 
     std::cerr << "\nDone.\n";
+
+    stop = clock();
+    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    std::cerr << "took " << timer_seconds << " seconds.\n";
 }
