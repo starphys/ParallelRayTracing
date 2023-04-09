@@ -415,95 +415,7 @@ int main() {
     create_world<<<1, 1>>>(d_list, d_world, d_camera, image_width, image_height, d_rand_state2);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
-    /*
-    point3 lookfrom;
-    point3 lookat;
-    auto vfov = 40.0;
-    auto aperture = 0.0;
-    color background(0, 0, 0);
-
-    switch (6) {
-    case 1:
-        world = random_scene();
-        background = color(0.70, 0.80, 1.00);
-        lookfrom = point3(13, 2, 3);
-        lookat = point3(0, 0, 0);
-        vfov = 20.0;
-        aperture = 0.1;
-        break;
-
-    case 2:
-        world = two_spheres();
-        background = color(0.70, 0.80, 1.00);
-        lookfrom = point3(13, 2, 3);
-        lookat = point3(0, 0, 0);
-        vfov = 20.0;
-        break;
-
-    case 3:
-        world = two_perlin_spheres();
-        background = color(0.70, 0.80, 1.00);
-        lookfrom = point3(13, 2, 3);
-        lookat = point3(0, 0, 0);
-        vfov = 20.0;
-        break;
-
-    case 4:
-        world = earth();
-        background = color(0.70, 0.80, 1.00);
-        lookfrom = point3(0, 0, 12);
-        lookat = point3(0, 0, 0);
-        vfov = 20.0;
-        break;
-
-    case 5:
-        world = simple_light();
-        samples_per_pixel = 400;
-        lookfrom = point3(26, 3, 6);
-        lookat = point3(0, 2, 0);
-        vfov = 20.0;
-        break;
-
-    default:
-    case 6:
-        world = cornell_box();
-        aspect_ratio = 1.0;
-        image_width = 100;
-        samples_per_pixel = 200;
-        lookfrom = point3(278, 278, -800);
-        lookat = point3(278, 278, 0);
-        vfov = 40.0;
-        break;
-
-    case 7:
-        world = cornell_smoke();
-        aspect_ratio = 1.0;
-        image_width = 600;
-        samples_per_pixel = 200;
-        lookfrom = point3(278, 278, -800);
-        lookat = point3(278, 278, 0);
-        vfov = 40.0;
-        break;
-
-    case 8:
-        world = final_scene();
-        aspect_ratio = 1.0;
-        image_width = 800;
-        samples_per_pixel = 10000;
-        lookfrom = point3(478, 278, -600);
-        lookat = point3(278, 278, 0);
-        vfov = 40.0;
-        break;
-    }
-
-    // Camera
-
-    const vec3 vup(0, 1, 0);
-    const auto dist_to_focus = 10.0;
-    const int image_height = static_cast<int>(image_width / aspect_ratio);
-
-    camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
-    */
+    
 
     clock_t start, stop;
     start = clock();
@@ -518,21 +430,24 @@ int main() {
 
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
-    stop = clock();
-    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
-    std::cerr << "took " << timer_seconds << " seconds.\n";
+    
+    
 
-    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+
+   std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
     for (int j = image_height - 1; j >= 0; --j) {
-        std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
+        //std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
         for (int i = 0; i < image_width; ++i) {
             int pixel_index = j * image_width + i;
             write_color(std::cout, frame_buffer[pixel_index], samples_per_pixel);
         }
     }
 
-    std::cerr << "\nDone.\n";
+    //std::cerr << "\nDone.\n";
+    stop = clock();
+    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    std::cerr << "took " << timer_seconds << " seconds.\n";
 
     checkCudaErrors(cudaDeviceSynchronize());
     free_world<<<1, 1>>>(d_list, d_world, d_camera);
