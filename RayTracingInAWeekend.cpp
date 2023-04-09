@@ -120,8 +120,8 @@ int main() {
     // Image
 
     auto aspect_ratio = 16.0 / 9.0;
-    int image_width = 400;
-    int samples_per_pixel = 100;
+    int image_width = 800;
+    int samples_per_pixel = 10;
     int max_depth = 50;
 
     // World
@@ -134,13 +134,13 @@ int main() {
     auto aperture = 0.0;
     color background(0, 0, 0);
 
-    switch (6) {
+    switch (1) {
     case 1:
         world = random_scene();
         background = color(0.70, 0.80, 1.00);
         lookfrom = point3(13, 2, 3);
         lookat = point3(0, 0, 0);
-        vfov = 20.0;
+        vfov = 30.0;
         aperture = 0.1;
         break;
 
@@ -215,6 +215,9 @@ int main() {
     const int pixels = image_height * image_width;
 
     camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
+
+    clock_t start, stop;
+    start = clock();
 
     // Render - split the work up into jobs, schedule the jobs to available threads.
     color* image = new color[pixels];
@@ -295,6 +298,11 @@ int main() {
     }
 
     std::cerr << "\nDone.\n";
+
+    stop = clock();
+    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    std::cerr << "took " << timer_seconds << " seconds.\n";
+
     delete[] image;
     return 0;
 }
