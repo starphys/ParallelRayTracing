@@ -366,3 +366,5 @@ FodyWeavers.xsd
 *.png
 *.ppm
 *.jpg
+*.txt
+*.ps1
