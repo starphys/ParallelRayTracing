@@ -405,15 +405,17 @@ int main() {
     const vec3 vup(0, 1, 0);
     const auto dist_to_focus = 10.0;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
+    const int pixels = image_height * image_width;
 
     camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
 
-    // Render
-
-    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
-
     clock_t start, stop;
     start = clock();
+
+    std::vector<color> image{};
+
+    // Render
+    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
     for (int j = image_height - 1; j >= 0; --j) {
         // std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
@@ -425,7 +427,7 @@ int main() {
                 ray r = cam.get_ray(u, v);
                 pixel_color += ray_color(r, background, world, max_depth);
             }
-            write_color(std::cout, pixel_color, samples_per_pixel);
+            image.push_back(pixel_color);
         }
     }
 
@@ -433,5 +435,16 @@ int main() {
 
     stop = clock();
     double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
-    std::cerr << "took " << timer_seconds << " seconds.\n";
+    std::cerr << "took " << timer_seconds << " seconds. ";
+
+
+    // Write out
+    start = clock();
+    for (int i = 0; i < pixels; ++i) {
+        write_color(std::cout, image[i], samples_per_pixel);
+    }
+    stop = clock();
+    timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    std::cerr << "Output took " << timer_seconds << " seconds.\n";
+    return 0;
 }
