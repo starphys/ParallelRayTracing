@@ -431,10 +431,14 @@ int main() {
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
     
+    stop = clock();
+    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    std::cerr << "took " << timer_seconds << " seconds.\n";
     
 
-
-   std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+    start = clock();
+    
+    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
     for (int j = image_height - 1; j >= 0; --j) {
         //std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
@@ -446,7 +450,7 @@ int main() {
 
     //std::cerr << "\nDone.\n";
     stop = clock();
-    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
     std::cerr << "took " << timer_seconds << " seconds.\n";
 
     checkCudaErrors(cudaDeviceSynchronize());
